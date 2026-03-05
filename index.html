@@ -571,10 +571,10 @@
         <div class="import-modal">
             <div class="import-modal-title">导入棋局</div>
             <div class="import-tabs">
-                <button class="import-tab active" id="tab-manual" onclick="switchImportTab('manual')">✏️ 输入编码</button>
-                <button class="import-tab" id="tab-scan" onclick="switchImportTab('scan')">📷 扫描二维码</button>
+                <button class="import-tab" id="tab-manual" onclick="switchImportTab('manual')">✏️ 输入编码</button>
+                <button class="import-tab active" id="tab-scan" onclick="switchImportTab('scan')">📷 扫描二维码</button>
             </div>
-            <div class="import-panel active" id="panel-manual">
+            <div class="import-panel" id="panel-manual">
                 <div class="import-modal-desc">输入 25 位编码（大小写均可，连字符可省略）</div>
                 <input class="import-input" id="import-input" type="text" placeholder="例：ABCDE-FGHJK-MNPQR-STVWX-12345" maxlength="30" autocomplete="off" spellcheck="false">
                 <div class="import-error" id="import-error"></div>
@@ -583,7 +583,7 @@
                     <button class="import-confirm-btn" id="import-confirm-btn">导入</button>
                 </div>
             </div>
-            <div class="import-panel" id="panel-scan">
+            <div class="import-panel active" id="panel-scan">
                 <div class="scanner-wrap">
                     <video id="scanner-video" autoplay playsinline muted></video>
                     <div class="scanner-overlay"><div class="scanner-frame"></div><div class="scanner-line"></div></div>
@@ -1162,10 +1162,11 @@
         document.getElementById('tab-manual').classList.toggle('active', tab === 'manual'); document.getElementById('tab-scan').classList.toggle('active', tab === 'scan');
         document.getElementById('panel-manual').classList.toggle('active', tab === 'manual'); document.getElementById('panel-scan').classList.toggle('active', tab === 'scan');
         tab === 'scan' ? startScanner() : stopScanner();
+        if (tab === 'manual') setTimeout(() => document.getElementById('import-input').focus(), 50);
     }
     function openImportModal() {
         document.getElementById('import-input').value = ''; document.getElementById('import-error').textContent = ''; document.getElementById('scanner-result').textContent = '';
-        switchImportTab('manual'); document.getElementById('import-modal-bg').classList.add('open'); setTimeout(() => document.getElementById('import-input').focus(), 50);
+        switchImportTab('scan'); document.getElementById('import-modal-bg').classList.add('open'); 
     }
     function closeImportModal() { stopScanner(); document.getElementById('import-modal-bg').classList.remove('open'); }
     async function startScanner() {
@@ -1189,10 +1190,20 @@
         const qr = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
         if (qr) {
             const raw = qr.data.replace(/[-\s]/g, '').toUpperCase();
-            document.getElementById('scanner-result').textContent = '识别到：' + raw;
             const result = decodeBoard(raw);
-            if (!result.error) { stopScanner(); applyDecoded(result.moves); closeImportModal(); showToast('扫码导入成功！'); return; }
-            else document.getElementById('scanner-result').textContent = '格式不符，继续扫描…';
+            
+            // 无论成功还是失败，扫到码就立刻停止扫描并关闭弹窗
+            stopScanner();
+            document.getElementById('import-modal-bg').classList.remove('open');
+            
+            if (!result.error) { 
+                applyDecoded(result.moves); 
+                showToast('扫码导入成功！'); 
+            } else {
+                // 如果扫码解析出错，通过下方 Toast 提示用户
+                showToast('导入失败：' + result.error);
+            }
+            return; // 终止动画帧循环
         }
         scanAnimFrame = requestAnimationFrame(tickScan);
     }

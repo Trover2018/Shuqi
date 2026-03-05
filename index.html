@@ -82,6 +82,27 @@
 
         .header h1 { margin: 0; font-size: 28px; font-weight: 700; color: var(--md-sys-color-primary); letter-spacing: -0.5px; }
         .header p { margin: 4px 0 24px 0; font-size: 14px; color: var(--md-sys-color-on-surface-variant); }
+        .header .byline {
+            display: inline-block; cursor: default;
+            position: relative;
+        }
+        .header .byline:hover { color: var(--md-sys-color-primary); }
+        .header .byline::after {
+            content: 'trovercham@gmail.com';
+            position: absolute; left: 0; top: calc(100% + 4px);
+            background: var(--md-sys-color-on-surface);
+            color: var(--md-sys-color-surface);
+            font-size: 12px; font-weight: 400;
+            padding: 4px 10px; border-radius: 8px;
+            white-space: nowrap; pointer-events: none;
+            opacity: 0; transform: translateY(-4px);
+            transition: opacity 0.2s, transform 0.2s;
+            box-shadow: var(--md-elevation-2);
+            z-index: 99;
+        }
+        .header .byline:hover::after { opacity: 1; transform: translateY(0); }
+        .header .byline { cursor: pointer; }
+        .header .byline.copied::after { content: '已复制 ✓'; background: var(--md-sys-color-primary); }
 
         .status-card { background-color: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); padding: 20px; border-radius: 16px; margin-bottom: 24px; text-align: center; transition: all 0.3s ease; }
         .status-card.demo-mode { background-color: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant); }
@@ -120,8 +141,8 @@
         .view-controls-row .divider { width: 1px; height: 24px; background-color: var(--md-sys-color-outline-variant); opacity: 0.5; }
 
         /* --- 主棋盘区 --- */
-        .main-content { flex-grow: 1; position: relative; background-color: var(--md-sys-color-surface-variant); display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        #board-wrapper { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; touch-action: none; z-index: 1; }
+        .main-content { flex-grow: 1; position: relative; background-color: var(--md-sys-color-surface-variant); display: flex; justify-content: center; align-items: center; overflow: hidden; user-select: none; -webkit-user-select: none; }
+        #board-wrapper { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; touch-action: none; z-index: 1; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
         
         /* 积分开关行 */
         .switch-row {
@@ -294,7 +315,7 @@
         .overlay-mode { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: calc(20px + env(safe-area-inset-right, 0px)); background: var(--md-sys-color-surface); border: 1px solid var(--md-sys-color-outline-variant); backdrop-filter: blur(8px); padding: 10px 20px; border-radius: 100px; box-shadow: var(--md-elevation-2); z-index: 40; font-weight: 700; color: var(--md-sys-color-primary); pointer-events: none; }
 
         /* 棋盘容器 */
-        #board-container { position: relative; width: 800px; height: 700px; transform-origin: center center; transition: transform 0.1s ease-out; }
+        #board-container { position: relative; width: 800px; height: 700px; transform-origin: center center; transition: transform 0.1s ease-out; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
         #lines-canvas { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
 
         .split-center { position: absolute; width: 120px; height: 120px; background: linear-gradient(to bottom, rgba(239,68,68,0.15) 50%, rgba(59,130,246,0.15) 50%); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transform: translate(-50%, -50%); z-index: 0; pointer-events: none; }
@@ -474,8 +495,8 @@
             .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 99; }
             .sidebar-backdrop.open { display: block; }
             .main-content { width: 100vw; }
-            .piece { width: 44px; height: 44px; font-size: 20px; }
-            .node  { width: 38px; height: 38px; }
+            /* 棋盘内的 .piece 和 .node 由 board-container 的 CSS transform scale 统一缩放，
+               不在此覆盖尺寸，避免竖屏下棋子比例失真 */
             .bottom-btn-group { bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px)); left: max(16px, calc(env(safe-area-inset-left, 0px) + 8px)); gap: 8px; }
             .float-btn { width: 52px; height: 52px; border-radius: 18px; }
             .save-menu { left: 0; width: min(320px, 92vw); }
@@ -520,8 +541,15 @@
         }
         .share-modal-title { font-size: 18px; font-weight: 700; color: var(--md-sys-color-on-surface); align-self: flex-start; }
         .share-modal-desc { font-size: 13px; color: var(--md-sys-color-outline); align-self: flex-start; margin-top: -8px; }
+        #share-qr-container {
+            background: #fff;
+            padding: 10px;
+            border-radius: 14px;
+            display: inline-block;
+            line-height: 0;
+        }
         #share-qr-container canvas, #share-qr-container img {
-            border-radius: 12px; width: 200px !important; height: 200px !important; display: block;
+            border-radius: 6px; width: 200px !important; height: 200px !important; display: block;
         }
         .share-qr-empty { width: 200px; height: 200px; border-radius: 12px; background: var(--md-sys-color-surface-variant); display: flex; justify-content: center; align-items: center; color: var(--md-sys-color-outline); font-size: 13px; text-align: center; padding: 20px; box-sizing: border-box; }
         .share-code-label {
@@ -607,7 +635,7 @@
     <aside class="sidebar" id="sidebar">
         <div class="header">
             <h1>国际数棋</h1>
-            <p>——By Trover</p>
+            <p><span class="byline" id="byline-span" onclick="(function(el){navigator.clipboard.writeText('trovercham@gmail.com').then(()=>{el.classList.add('copied');setTimeout(()=>el.classList.remove('copied'),1800);}).catch(()=>{});})(this)">——By Trover</span></p>
         </div>
 
         <div id="status-panel" class="status-card demo-mode">
@@ -657,7 +685,7 @@
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
     <!-- 右侧游戏区 -->
-    <main class="main-content" id="main-content">
+    <main class="main-content" id="main-content" ondragstart="return false">
         <!-- 左下角浮动按钮组 -->
         <div class="bottom-btn-group" id="bottom-btn-group">
             <button class="float-btn" id="toggle-sidebar-btn" title="收起/展开面板">
@@ -681,7 +709,13 @@
                 </div>
             </div>
             <button class="float-btn float-btn-share" id="share-btn" title="分享当前棋局（生成二维码）">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
+                    <line x1="14" y1="14" x2="14" y2="14.01"/><line x1="17" y1="14" x2="17" y2="14.01"/><line x1="20" y1="14" x2="20" y2="14.01"/>
+                    <line x1="14" y1="17" x2="14" y2="17.01"/><line x1="17" y1="17" x2="20" y2="17"/><line x1="20" y1="20" x2="20" y2="20.01"/>
+                    <line x1="17" y1="20" x2="14" y2="20"/><line x1="14" y1="20" x2="14" y2="17"/>
+                </svg>
             </button>
             <button class="float-btn float-btn-lock" id="lock-btn" title="锁定/解锁视角">
                 <svg id="lock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -696,7 +730,7 @@
             <div class="score-type-title">积和法 (最高285分)</div>
             <div class="score-row score-red"><span>红方</span><span id="score-red-prod">0</span></div>
             <div class="score-row score-blue"><span>蓝方</span><span id="score-blue-prod">0</span></div>
-            <div class="score-type-title">差和法</div>
+            <div class="score-type-title">差和法 (Σ棋子−棋位)</div>
             <div class="score-row score-red"><span>红方</span><span id="score-red-diff">0</span></div>
             <div class="score-row score-blue"><span>蓝方</span><span id="score-blue-diff">0</span></div>
         </div>
@@ -10908,6 +10942,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     let pieces = {};
     let draggedPiece = null;
     let isDraggingPiece = false;   // 区分棋子拖拽 vs 背景平移
+    let dragOffsetX = 0, dragOffsetY = 0; // 鼠标按下时相对棋子中心的偏移（逻辑坐标）
 
     let moveHistory = [];
     let capturedPieces = [];
@@ -11036,11 +11071,9 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 
     document.getElementById('board-wrapper').addEventListener('wheel', (e) => {
         if (isLocked) return;
-        if (e.ctrlKey) {
-            e.preventDefault();
-            userZoom = e.deltaY < 0 ? userZoom + 0.1 : Math.max(0.4, userZoom - 0.1);
-            applyTransform();
-        }
+        e.preventDefault();
+        userZoom = e.deltaY < 0 ? Math.min(4, userZoom + 0.1) : Math.max(0.4, userZoom - 0.1);
+        applyTransform();
     }, { passive: false });
 
     // --- 5. 背景平移 + 双指缩放 ---
@@ -11096,12 +11129,26 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 
     function startDrag(e) {
         e.preventDefault();
+        e.stopPropagation();
         if (!isDemoMode && e.target.dataset.color !== currentPlayer) { showToast('只能移动当前回合的棋子！'); return; }
         
         draggedPiece = e.target;
         isDraggingPiece = true;
         isPanning = false;
         draggedPiece.classList.add('dragging');
+
+        // 记录鼠标按下时相对棋子中心的逻辑坐标偏移，避免拖拽漂移
+        const pos = getClientPos(e);
+        const container = document.getElementById('board-container');
+        const rect = container.getBoundingClientRect();
+        const scaleX = rect.width / 800;
+        const scaleY = rect.height / 700;
+        const pieceLogicX = parseFloat(draggedPiece.style.left) || 0;
+        const pieceLogicY = parseFloat(draggedPiece.style.top)  || 0;
+        const mouseLogicX = (pos.x - rect.left) / scaleX;
+        const mouseLogicY = (pos.y - rect.top)  / scaleY;
+        dragOffsetX = mouseLogicX - pieceLogicX;
+        dragOffsetY = mouseLogicY - pieceLogicY;
         
         // 显示吃子区，淡化移出托盘
         document.getElementById('capture-zone').classList.add('active');
@@ -11114,6 +11161,8 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     }
 
     document.getElementById('pieces-layer').addEventListener('dragstart', e => e.preventDefault());
+    document.getElementById('board-wrapper').addEventListener('dragstart', e => e.preventDefault());
+    document.addEventListener('dragstart', e => { if (e.target.closest('#main-content')) e.preventDefault(); });
 
     function dragPiece(e) {
         if (!draggedPiece) return;
@@ -11124,21 +11173,21 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         const rect = container.getBoundingClientRect();
         const scaleX = rect.width / 800;
         const scaleY = rect.height / 700;
-        
-        // 拖拽跟随
-        let x = Math.max(0, Math.min((pos.x - rect.left) / scaleX, 800));
-        let y = Math.max(0, Math.min((pos.y - rect.top) / scaleY, 700));
+
+        // 拖拽跟随（逻辑坐标，减去按下时的偏移量，防止竖屏/缩放下漂移；不做范围限制，让棋子能拖入吃子区）
+        let x = (pos.x - rect.left) / scaleX - dragOffsetX;
+        let y = (pos.y - rect.top)  / scaleY - dragOffsetY;
         draggedPiece.style.left = x + 'px';
         draggedPiece.style.top = y + 'px';
 
-        // 判断是否悬停在吃子区上方（用棋盘内坐标：x > 670 即右侧130px区域）
+        // 吃子区悬停检测：使用屏幕坐标（pos.x/y = clientX/Y）直接与吃子区的
+        // getBoundingClientRect() 比较，完全独立于棋盘的缩放与平移变换
         const captureZone = document.getElementById('capture-zone');
         if (captureZone.classList.contains('active')) {
-            if (x > 670) {
-                captureZone.classList.add('hover');
-            } else {
-                captureZone.classList.remove('hover');
-            }
+            const cz = captureZone.getBoundingClientRect();
+            const hovering = pos.x >= cz.left && pos.x <= cz.right &&
+                             pos.y >= cz.top  && pos.y <= cz.bottom;
+            captureZone.classList.toggle('hover', hovering);
         }
     }
 
@@ -11151,7 +11200,15 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         document.removeEventListener('touchend', endDragPiece);
 
         const captureZone = document.getElementById('capture-zone');
-        const isHoveringZone = captureZone.classList.contains('hover');
+        // 同时检查：① 拖拽过程中设置的 hover 类；② 松手瞬间的实际屏幕坐标
+        // 这样无论棋盘如何缩放/平移，碰撞判定始终以屏幕像素为准，不会漂移
+        const dropPos = getClientPos(e);
+        let isHoveringZone = captureZone.classList.contains('hover');
+        if (!isHoveringZone && captureZone.classList.contains('active')) {
+            const cz = captureZone.getBoundingClientRect();
+            isHoveringZone = dropPos.x >= cz.left && dropPos.x <= cz.right &&
+                             dropPos.y >= cz.top  && dropPos.y <= cz.bottom;
+        }
         captureZone.classList.remove('active', 'hover');
         document.getElementById('captured-tray').classList.remove('dimmed');
         draggedPiece.classList.remove('dragging');
@@ -11186,21 +11243,25 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         const scaleX = rect.width / 800;
         const scaleY = rect.height / 700;
 
-        const pieceLeft = parseFloat(draggedPiece.style.left);
-        const pieceTop  = parseFloat(draggedPiece.style.top);
+        // 始终使用鼠标/手指的实际位置作为落点检测基准
         const pos = getClientPos(e);
-        let mouseX = isNaN(pieceLeft) ? (pos.x - rect.left) / scaleX : pieceLeft;
-        let mouseY = isNaN(pieceTop)  ? (pos.y - rect.top)  / scaleY : pieceTop;
+        let mouseX = (pos.x - rect.left) / scaleX;
+        let mouseY = (pos.y - rect.top)  / scaleY;
 
         let pieceData = pieces[draggedPiece.dataset.id];
         let originalNode = nodes[pieceData.nodeId];
 
+        // 吸附检测：全程用屏幕坐标，阈值固定为屏幕像素（不随缩放变化）
+        const snapThreshPx = 28; // 屏幕像素，与缩放无关
         let targetNode = null;
-        let minD = hexSize;
-        
-        // 寻找吸附节点（重要：只能落到没有棋子的空节点上，禁止叠加）
+        let minD = snapThreshPx;
+
+        // 寻找吸附节点（只能落到没有棋子的空节点上，禁止叠加）
+        const screenPos = getClientPos(e);
         Object.values(nodes).forEach(node => {
-            let d = Math.sqrt(Math.pow(node.x - mouseX, 2) + Math.pow(node.y - mouseY, 2));
+            const nsx = rect.left + node.x * scaleX;
+            const nsy = rect.top  + node.y * scaleY;
+            let d = Math.sqrt(Math.pow(nsx - screenPos.x, 2) + Math.pow(nsy - screenPos.y, 2));
             if (d < minD && node.piece === null) { targetNode = node; minD = d; }
         });
         if (targetNode && targetNode.id === originalNode.id) targetNode = null;
@@ -11277,6 +11338,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 
     function startDragFromTray(e) {
         e.preventDefault();
+        e.stopPropagation();
         const pieceId = e.currentTarget.dataset.id;
         const pieceData = capturedPieces.find(p => p.id === pieceId);
         if (!pieceData) return;
@@ -11287,15 +11349,23 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 
         const tempNode = Object.values(nodes).find(n => !n.piece);
         if (!tempNode) { delete pieces[pieceId]; capturedPieces.push(pieceData); showToast('棋盘已满'); return; }
-        
+
         pieceData.nodeId = tempNode.id;
         tempNode.piece = pieceId;
+
+        // 把棋子初始坐标定在鼠标/手指实际位置（board-container 坐标系）
+        const initPos = getClientPos(e);
+        const container = document.getElementById('board-container');
+        const rect = container.getBoundingClientRect();
+        const scaleX = rect.width / 800, scaleY = rect.height / 700;
+        const initX = (initPos.x - rect.left) / scaleX;
+        const initY = (initPos.y - rect.top)  / scaleY;
 
         const piecesLayer = document.getElementById('pieces-layer');
         const el = document.createElement('div');
         el.className = `piece ${pieceData.color}`;
         el.innerText = pieceData.val; el.dataset.id = pieceId; el.dataset.color = pieceData.color; el.draggable = false;
-        el.style.left = tempNode.x + 'px'; el.style.top = tempNode.y + 'px';
+        el.style.left = initX + 'px'; el.style.top = initY + 'px';
         el.addEventListener('mousedown', startDrag);
         el.addEventListener('touchstart', startDrag, { passive: false });
         piecesLayer.appendChild(el);
@@ -11304,7 +11374,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         draggedPiece = el;
         isDraggingPiece = true; isPanning = false;
         draggedPiece.classList.add('dragging');
-        
+
         // 显示吃子区
         document.getElementById('capture-zone').classList.add('active');
         document.getElementById('captured-tray').classList.add('dimmed');
@@ -11386,26 +11456,21 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         showToast('已悔棋');
     });
 
-    // --- 8. 编码系统（支持任意子数，格式：首字符=子数，后29位=位置，共30位分6组） ---
-    // 说明：88个节点，20子满棋时位置编码最多需要25位B36，加首字符共26位，
-    //        向上取整到5的倍数 = 30位，分6组每组5字符。
+    // --- 8. 编码系统 ---
+    // 格式：[4位bitmask][25位位置][1位填充] = 30位，分6组×5字符
+    // bitmask：bit0-9=红方val0-9是否在棋盘，bit10-19=蓝方val0-9是否在棋盘
+    // 位置编码：对棋盘上存活棋子（按bitmask固定顺序：红0-9,蓝0-9）做阶乘数系统编码
+    // 优点：encode/decode用同一套固定顺序，被吃棋子的颜色/val可精确还原
+
     let nodeIndexList = [];
     function buildNodeIndex() {
         nodeIndexList = [];
-        const rowCounts = [1,2,3,4,11,10,9,8,9,10,11,4,3,2,1];
-        rowCounts.forEach((count, row) => { for (let i = 0; i < count; i++) nodeIndexList.push(`n_${row}_${i}`); });
-    }
-
-    function getSortedPieceIds() {
-        const ids = Object.keys(pieces);
-        const reds  = ids.filter(id => pieces[id].color === 'red' ).sort((a,b) => pieces[a].val - pieces[b].val);
-        const blues = ids.filter(id => pieces[id].color === 'blue').sort((a,b) => pieces[a].val - pieces[b].val);
-        return [...reds, ...blues];
+        [1,2,3,4,11,10,9,8,9,10,11,4,3,2,1].forEach((count, row) => {
+            for (let i = 0; i < count; i++) nodeIndexList.push(`n_${row}_${i}`);
+        });
     }
 
     const B36 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const CODE_POS_LEN = 29; // 位置编码固定29位
-    const CODE_TOTAL   = 30; // 含首字符共30位
     function bigintToB36(n, minLen) {
         const base = 36n; let s = '';
         if (n === 0n) s = 'A';
@@ -11418,57 +11483,83 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         return n;
     }
 
+    // 返回全部棋子（棋盘+托盘）按固定顺序排列，key=pieceId
+    function getAllPiecesMap() {
+        const map = { ...pieces };
+        capturedPieces.forEach(p => { map[p.id] = p; });
+        return map;
+    }
+    // 从 allPiecesMap 里按 color+val 找 pieceId（唯一）
+    function findPieceId(allMap, color, val) {
+        return Object.keys(allMap).find(id => allMap[id].color === color && allMap[id].val === val);
+    }
+
     function encodeBoard() {
         buildNodeIndex();
-        const pieceIds = getSortedPieceIds();
-        const count = pieceIds.length;
-        if (count === 0) return null;
-        const remaining = nodeIndexList.slice();
-        const ranks = [];
-        for (const pid of pieceIds) {
-            const rank = remaining.indexOf(pieces[pid].nodeId);
-            if (rank < 0) return null;
-            ranks.push(rank); remaining.splice(rank, 1);
+        const allMap = getAllPiecesMap();
+        // 按固定顺序确定棋盘上的棋子
+        const onBoard = [];
+        let mask = 0;
+        for (let v = 0; v <= 9; v++) {
+            const pid = findPieceId(allMap, 'red', v);
+            if (!pid) return null;
+            if (pieces[pid]) { onBoard.push(pid); mask |= (1 << v); }
         }
-        // 小端阶乘数系统：从后往前累积
+        for (let v = 0; v <= 9; v++) {
+            const pid = findPieceId(allMap, 'blue', v);
+            if (!pid) return null;
+            if (pieces[pid]) { onBoard.push(pid); mask |= (1 << (10 + v)); }
+        }
+        if (onBoard.length === 0) return null;
+        // 阶乘数系统编码位置
+        const rem = nodeIndexList.slice(); const ranks = [];
+        for (const pid of onBoard) {
+            const r = rem.indexOf(pieces[pid].nodeId);
+            if (r < 0) return null;
+            ranks.push(r); rem.splice(r, 1);
+        }
+        const k = onBoard.length;
         let n = 0n;
-        for (let i = ranks.length - 1; i >= 0; i--) n = n * BigInt(88 - i) + BigInt(ranks[i]);
-        const countChar = B36[20 - count]; // A=20子，T=1子
-        const posStr = bigintToB36(n, CODE_POS_LEN);
-        return (countChar + posStr).match(/.{5}/g).join('-');
+        for (let i = k - 1; i >= 0; i--) n = n * BigInt(88 - i) + BigInt(ranks[i]);
+        // 拼装：4位mask + 25位位置 + 1位填充'A' = 30位
+        return (bigintToB36(BigInt(mask), 4) + bigintToB36(n, 25) + 'A').match(/.{5}/g).join('-');
     }
 
     function decodeBoard(code) {
         buildNodeIndex();
         const raw = code.replace(/[-\s]/g, '').toUpperCase();
-        if (raw.length !== CODE_TOTAL) return { error: `编码应为 ${CODE_TOTAL} 位（连字符可省略）` };
-        const countCharIdx = B36.indexOf(raw[0]);
-        if (countCharIdx < 0 || countCharIdx > 19) return { error: '编码首字符无效' };
-        const count = 20 - countCharIdx;
-        const n = b36ToBigint(raw.slice(1));
-        if (n === null) return { error: '包含非法字符' };
-        const allPieces = { ...pieces };
-        capturedPieces.forEach(p => { allPieces[p.id] = p; });
-        const allIds = Object.keys(allPieces);
-        const reds  = allIds.filter(id => allPieces[id].color === 'red' ).sort((a,b) => allPieces[a].val - allPieces[b].val);
-        const blues = allIds.filter(id => allPieces[id].color === 'blue').sort((a,b) => allPieces[a].val - allPieces[b].val);
-        const allSorted = [...reds, ...blues];
-        if (allSorted.length < count) return { error: `编码需要 ${count} 枚棋子，当前只有 ${allSorted.length} 枚（请先重置棋盘）` };
-        const pieceIds = allSorted.slice(0, count);
-        // 小端解码
-        let val = n; const ranks = [];
-        for (let i = 0; i < count; i++) {
-            ranks.push(Number(val % BigInt(88 - i)));
-            val /= BigInt(88 - i);
+        // 兼容旧版25位格式（已废弃，提示用户重新生成）
+        if (raw.length === 25) return { error: '检测到旧版25位编码，请在原设备重新生成编码后导入' };
+        if (raw.length !== 30) return { error: '编码应为 30 位（含连字符36字符，或去掉连字符30字符）' };
+        const maskN = b36ToBigint(raw.slice(0, 4));
+        const posN  = b36ToBigint(raw.slice(4, 29));
+        if (maskN === null || posN === null) return { error: '包含非法字符' };
+        const mask = Number(maskN);
+        // 从全部棋子中按固定顺序找 onBoardIds 和 capturedIds
+        const allMap = getAllPiecesMap();
+        const onBoardIds = [], capturedIds = [];
+        for (let v = 0; v <= 9; v++) {
+            const pid = findPieceId(allMap, 'red', v);
+            if (!pid) return { error: `缺少红方棋子 ${v}，请先重置棋盘` };
+            ((mask >> v) & 1 ? onBoardIds : capturedIds).push(pid);
         }
+        for (let v = 0; v <= 9; v++) {
+            const pid = findPieceId(allMap, 'blue', v);
+            if (!pid) return { error: `缺少蓝方棋子 ${v}，请先重置棋盘` };
+            ((mask >> (10 + v)) & 1 ? onBoardIds : capturedIds).push(pid);
+        }
+        // 小端解码位置
+        const k = onBoardIds.length;
+        let val = posN; const ranks = [];
+        for (let i = 0; i < k; i++) { ranks.push(Number(val % BigInt(88 - i))); val /= BigInt(88 - i); }
         if (val !== 0n) return { error: '编码超出有效范围' };
-        const remaining = nodeIndexList.slice(), moves = [];
-        for (let i = 0; i < count; i++) {
-            if (ranks[i] >= remaining.length) return { error: '编码无效（节点越界）' };
-            moves.push({ pieceId: pieceIds[i], targetNodeId: remaining[ranks[i]] });
-            remaining.splice(ranks[i], 1);
+        const rem = nodeIndexList.slice(); const moves = [];
+        for (let i = 0; i < k; i++) {
+            if (ranks[i] >= rem.length) return { error: '编码无效（节点越界）' };
+            moves.push({ pieceId: onBoardIds[i], targetNodeId: rem[ranks[i]] });
+            rem.splice(ranks[i], 1);
         }
-        return { moves, capturedIds: allSorted.slice(count) };
+        return { moves, capturedIds };
     }
 
     function applyDecoded(moves, capturedIds) {
@@ -11585,7 +11676,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
                 <div class="save-slot-left"><span class="save-slot-name">棋局 ${record.id}</span><span class="save-slot-time">${formatTime(record.time)}</span><span class="save-slot-code">${record.code || '—'}</span></div>
                 <div class="save-slot-actions"><button class="save-slot-restore btn-restore restore-action">还原</button><button class="save-slot-restore btn-copy copy-action">复制码</button><button class="save-slot-restore btn-qr qr-action">二维码</button></div>`;
             const qrWrap = document.createElement('div'); qrWrap.className = 'save-slot-qr-wrap';
-            const qrDiv = document.createElement('div'), qrLabel = document.createElement('div'); qrLabel.className = 'save-slot-qr-label'; qrLabel.textContent = record.code || '';
+            const qrDiv = document.createElement('div'); qrDiv.style.cssText='background:#fff;padding:6px;border-radius:8px;display:inline-block;'; const qrLabel = document.createElement('div'); qrLabel.className = 'save-slot-qr-label'; qrLabel.textContent = record.code || '';
             qrWrap.appendChild(qrDiv); qrWrap.appendChild(qrLabel);
             let qrGenerated = false;
             slot.querySelector('.qr-action').addEventListener('click', e => {
@@ -11612,9 +11703,17 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     }
 
     // 询问是否保存当前棋局后再执行回调
+    function isInitialBoardState() {
+        // 初始状态：没有任何移动记录，没有被吃棋子，pieces 数量等于20
+        if (moveHistory.length > 0) return false;
+        if (capturedPieces.length > 0) return false;
+        if (Object.keys(pieces).length !== 20) return false;
+        return true;
+    }
+
     function askSaveBeforeImport(onProceed) {
         const hasContent = Object.keys(pieces).length > 0 || capturedPieces.length > 0;
-        if (!hasContent) { onProceed(); return; }
+        if (!hasContent || isInitialBoardState()) { onProceed(); return; }
         const bg = document.getElementById('confirm-modal-bg');
         bg.classList.add('open');
         const saveBtn  = document.getElementById('confirm-save-btn');
@@ -11803,10 +11902,8 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         }
         overlay.style.display = 'block';
 
-        // 中间区域（row 4~10）的节点，计算在其上的棋子得分
-        // 积和法：进入对方阵地的棋子，棋子数值 × 所占位置得分（该位置的 scoreValue）
-        // 差和法：己方棋子进入对方阵地的数值之和 - 对方棋子进入己方阵地的数值之和
-
+        // 积和法：棋子编号 × 棋位编号，取所有进入对方阵地的棋子
+        // 差和法：棋子编号 − 棋位编号，取所有进入对方阵地的棋子，负值也计入
         let redProd = 0, blueProd = 0;
         let redDiff = 0, blueDiff = 0;
 
@@ -11814,20 +11911,15 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
             if (!node.piece) return;
             const piece = pieces[node.piece];
             if (!piece) return;
-
-            // 红方阵地（row < 4）：蓝方棋子进入得分
-            if (node.type === 'red-zone') {
-                if (piece.color === 'blue') {
-                    blueProd += piece.val * node.scoreValue;
-                    blueDiff += piece.val;
-                }
+            // 红方阵地（row < 4）：蓝方棋子入侵得分
+            if (node.type === 'red-zone' && piece.color === 'blue') {
+                blueProd += piece.val * node.scoreValue;
+                blueDiff += piece.val - node.scoreValue;
             }
-            // 蓝方阵地（row > 10）：红方棋子进入得分
-            if (node.type === 'blue-zone') {
-                if (piece.color === 'red') {
-                    redProd += piece.val * node.scoreValue;
-                    redDiff += piece.val;
-                }
+            // 蓝方阵地（row > 10）：红方棋子入侵得分
+            if (node.type === 'blue-zone' && piece.color === 'red') {
+                redProd += piece.val * node.scoreValue;
+                redDiff += piece.val - node.scoreValue;
             }
         });
 

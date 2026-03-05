@@ -477,6 +477,50 @@
             pointer-events: none; z-index: 9999; white-space: nowrap;
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        /* ===== 被吃棋子区 ===== */
+        .captured-tray {
+            position: absolute;
+            top: 50%; right: 16px;
+            transform: translateY(-50%);
+            background: rgba(186, 26, 26, 0.08);
+            border: 1.5px solid rgba(186, 26, 26, 0.25);
+            border-radius: 16px;
+            padding: 10px 8px;
+            min-width: 52px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 40;
+            display: none;           /* 默认隐藏 */
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(6px);
+            transition: opacity 0.2s;
+        }
+        .captured-tray.visible { display: flex; }
+        .captured-tray-title {
+            font-size: 10px; font-weight: 700; letter-spacing: 1px;
+            color: rgba(186,26,26,0.7); text-transform: uppercase;
+            writing-mode: horizontal-tb; margin-bottom: 2px;
+        }
+        .captured-tray-list {
+            display: flex; flex-direction: column; gap: 5px; align-items: center;
+        }
+        /* 被吃棋子的小圆片 */
+        .captured-piece {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: 700; font-size: 15px; color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            opacity: 0.85; flex-shrink: 0;
+            cursor: grab;
+            transition: opacity 0.15s, transform 0.15s;
+            user-select: none; -webkit-user-drag: none;
+        }
+        .captured-piece:hover { opacity: 1; transform: scale(1.08); }
+        .captured-piece.red  { background: linear-gradient(135deg, #ef4444, #ba1a1a); border: 1px solid #991b1b; }
+        .captured-piece.blue { background: linear-gradient(135deg, #3b82f6, #00629d); border: 1px solid #1e3a8a; }
+
         /* ===== 手机响应式适配 ===== */
         @media (max-width: 768px) {
 
@@ -667,6 +711,12 @@
 
         <div class="overlay-mode" id="overlay-mode">自由演示中</div>
 
+        <!-- 被吃棋子区（右侧，有棋子时显示） -->
+        <div class="captured-tray" id="captured-tray">
+            <div class="captured-tray-title">已移出</div>
+            <div class="captured-tray-list" id="captured-tray-list"></div>
+        </div>
+
         <div id="board-wrapper">
             <div id="board-container">
                 <canvas id="lines-canvas" width="800" height="700"></canvas>
@@ -736,6 +786,9 @@
 
     // 悔棋历史
     let moveHistory = [];
+
+    // 被吃棋子
+    let capturedPieces = [];
 
     // 保存记录（无上限数组）
     let saveRecords = [];
@@ -901,13 +954,14 @@
         }
     }, { passive: false });
 
-    // --- 5. 背景平移（仅在非拖拽棋子时触发）---
+    // --- 5. 背景平移 + 双指缩放 ---
     let isPanning = false;
     let lastPanX = 0, lastPanY = 0;
+    let isPinching = false;
+    let lastPinchDist = 0;
     const wrapper = document.getElementById('board-wrapper');
 
     wrapper.addEventListener('mousedown', (e) => {
-        // 只有点在空白背景时才平移
         if (e.target.closest('.piece') || e.target.closest('button') || e.target.closest('.sidebar')) return;
         isPanning = true;
         lastPanX = e.clientX;
@@ -927,17 +981,36 @@
         wrapper.style.cursor = '';
     });
 
+    function getTouchDist(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+
     wrapper.addEventListener('touchstart', (e) => {
         if (e.target.closest('.piece') || e.target.closest('button') || e.target.closest('.sidebar')) return;
         if (e.touches.length === 1) {
             isPanning = true;
+            isPinching = false;
             lastPanX = e.touches[0].clientX;
             lastPanY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            isPanning = false;
+            isPinching = true;
+            lastPinchDist = getTouchDist(e.touches);
         }
     }, { passive: false });
+
     window.addEventListener('touchmove', (e) => {
-        if (!isPanning || isDraggingPiece) return;
-        if (e.touches.length === 1) {
+        if (isDraggingPiece) return;
+        if (isPinching && e.touches.length === 2) {
+            e.preventDefault();
+            const dist = getTouchDist(e.touches);
+            const delta = dist - lastPinchDist;
+            userZoom = Math.max(0.4, userZoom + delta * 0.005);
+            lastPinchDist = dist;
+            applyTransform();
+        } else if (isPanning && e.touches.length === 1) {
             e.preventDefault();
             offsetX += (e.touches[0].clientX - lastPanX);
             offsetY += (e.touches[0].clientY - lastPanY);
@@ -946,7 +1019,17 @@
             applyTransform();
         }
     }, { passive: false });
-    window.addEventListener('touchend', () => { isPanning = false; });
+
+    window.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) { isPanning = false; isPinching = false; }
+        else if (e.touches.length === 1) {
+            // 从双指变单指：切回平移
+            isPinching = false;
+            isPanning = true;
+            lastPanX = e.touches[0].clientX;
+            lastPanY = e.touches[0].clientY;
+        }
+    });
 
     // --- 6. 棋子拖拽（关键：设置 isDraggingPiece 标志）---
     function getClientPos(e) {
@@ -1011,10 +1094,13 @@
 
         let targetNode = null;
         let minD = hexSize * 0.6;
+        // 允许落到有棋子的节点（会吃掉那个棋子）
         Object.values(nodes).forEach(node => {
             let d = Math.sqrt(Math.pow(node.x - mouseX, 2) + Math.pow(node.y - mouseY, 2));
-            if (d < minD && node.piece === null) { targetNode = node; minD = d; }
+            if (d < minD) { targetNode = node; minD = d; }
         });
+        // 不能落到自身
+        if (targetNode && targetNode.id === originalNode.id) targetNode = null;
 
         let pieceData = pieces[draggedPiece.dataset.id];
         let originalNode = nodes[pieceData.nodeId];
@@ -1045,12 +1131,100 @@
     }
 
     function movePiece(pieceData, fromNode, toNode) {
+        // 如果目标节点已有棋子，先吃掉它
+        if (toNode.piece && toNode.piece !== pieceData.id) {
+            capturePiece(toNode.piece);
+        }
         fromNode.piece = null;
         toNode.piece = pieceData.id;
         pieceData.nodeId = toNode.id;
         let el = document.querySelector(`.piece[data-id="${pieceData.id}"]`);
         el.style.left = toNode.x + 'px';
         el.style.top = toNode.y + 'px';
+    }
+
+    function capturePiece(pieceId) {
+        const pieceData = pieces[pieceId];
+        if (!pieceData) return;
+        // 从棋盘移除 DOM
+        const el = document.querySelector(`.piece[data-id="${pieceId}"]`);
+        if (el) el.remove();
+        // 从节点清除引用
+        const node = nodes[pieceData.nodeId];
+        if (node) node.piece = null;
+        // 加入被吃列表
+        capturedPieces.push(pieceData);
+        // 从 pieces 移除（不再参与棋盘逻辑）
+        delete pieces[pieceId];
+        renderCapturedTray();
+    }
+
+    function renderCapturedTray() {
+        const tray = document.getElementById('captured-tray');
+        const list = document.getElementById('captured-tray-list');
+        list.innerHTML = '';
+        if (capturedPieces.length === 0) {
+            tray.classList.remove('visible');
+            return;
+        }
+        tray.classList.add('visible');
+        capturedPieces.forEach(p => {
+            const el = document.createElement('div');
+            el.className = `captured-piece ${p.color}`;
+            el.innerText = p.val;
+            el.dataset.id = p.id;
+            el.dataset.color = p.color;
+            el.draggable = false;
+            el.title = `${p.color === 'red' ? '红' : '蓝'}方 ${p.val}`;
+            // 被吃的棋子也可以拖回棋盘
+            el.addEventListener('mousedown', startDragFromTray);
+            el.addEventListener('touchstart', startDragFromTray, { passive: false });
+            list.appendChild(el);
+        });
+    }
+
+    // 从被吃区拖回棋盘
+    function startDragFromTray(e) {
+        e.preventDefault();
+        const pieceId = e.currentTarget.dataset.id;
+        const pieceData = capturedPieces.find(p => p.id === pieceId);
+        if (!pieceData) return;
+
+        // 把棋子重新加回 pieces 和棋盘 DOM（暂时放在画面中央）
+        pieces[pieceId] = pieceData;
+        capturedPieces = capturedPieces.filter(p => p.id !== pieceId);
+
+        // 找一个空节点作为临时 nodeId（随便一个，拖放结束时会更新）
+        const tempNode = Object.values(nodes).find(n => !n.piece);
+        if (!tempNode) { delete pieces[pieceId]; capturedPieces.push(pieceData); return; }
+        pieceData.nodeId = tempNode.id;
+        tempNode.piece = pieceId;
+
+        // 创建 DOM 元素
+        const piecesLayer = document.getElementById('pieces-layer');
+        const el = document.createElement('div');
+        el.className = `piece ${pieceData.color}`;
+        el.innerText = pieceData.val;
+        el.dataset.id = pieceId;
+        el.dataset.color = pieceData.color;
+        el.draggable = false;
+        el.style.left = tempNode.x + 'px';
+        el.style.top = tempNode.y + 'px';
+        el.addEventListener('mousedown', startDrag);
+        el.addEventListener('touchstart', startDrag, { passive: false });
+        piecesLayer.appendChild(el);
+
+        renderCapturedTray();
+
+        // 立即接管拖拽
+        draggedPiece = el;
+        isDraggingPiece = true;
+        isPanning = false;
+        draggedPiece.classList.add('dragging');
+        document.addEventListener('mousemove', dragPiece);
+        document.addEventListener('touchmove', dragPiece, { passive: false });
+        document.addEventListener('mouseup', endDragPiece);
+        document.addEventListener('touchend', endDragPiece);
     }
 
     function snapBack(el, node) {
@@ -1591,6 +1765,8 @@
         drawLines();
         renderBoard();
         moveHistory = [];
+        capturedPieces = [];
+        renderCapturedTray();
         saveRecords = [];
         saveCounter = 0;
         renderSaveList();

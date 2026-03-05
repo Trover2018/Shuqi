@@ -726,11 +726,11 @@
         </div>
 
         <div class="overlay-score" id="overlay-score">
-            <h4>目标阵地当前得分</h4>
+            <h4>入侵阵地得分</h4>
             <div class="score-type-title">积和法 (最高285分)</div>
-            <div class="score-row score-red"><span>红方</span><span id="score-red-prod">0</span></div>
-            <div class="score-row score-blue"><span>蓝方</span><span id="score-blue-prod">0</span></div>
-            <div class="score-type-title">差和法 (Σ棋子−棋位)</div>
+            <div class="score-row score-red"><span>红方 <small id="score-red-count" style="font-weight:400;opacity:0.7"></small></span><span id="score-red-prod">0</span></div>
+            <div class="score-row score-blue"><span>蓝方 <small id="score-blue-count" style="font-weight:400;opacity:0.7"></small></span><span id="score-blue-prod">0</span></div>
+            <div class="score-type-title">差和法 (Σ棋子−棋位，含负)</div>
             <div class="score-row score-red"><span>红方</span><span id="score-red-diff">0</span></div>
             <div class="score-row score-blue"><span>蓝方</span><span id="score-blue-diff">0</span></div>
         </div>
@@ -11127,28 +11127,49 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         return { x: e.clientX, y: e.clientY };
     }
 
+    // 将屏幕坐标转换为 board-container 内的逻辑坐标
+    // 直接使用已知的变换参数，避免 getBoundingClientRect 因异步/重排带来的误差
+    function screenToLogic(sx, sy) {
+        const wrapper = document.getElementById('board-wrapper');
+        const ww = wrapper.clientWidth, wh = wrapper.clientHeight;
+        const baseScale = Math.min(ww / 800, wh / 700);
+        const s = baseScale * userZoom;
+        // applyTransform: translate(offsetX, offsetY) scale(s)，transform-origin: center center
+        // 容器中心在 wrapper 中心（flex 居中）加上平移偏移
+        const cx = ww / 2 + offsetX;
+        const cy = wh / 2 + offsetY;
+        // wrapper 在视口中的位置
+        const wRect = wrapper.getBoundingClientRect();
+        // 容器中心在视口中的屏幕坐标
+        const csx = wRect.left + cx;
+        const csy = wRect.top  + cy;
+        // 逆变换：screen → logic（容器中心对应逻辑坐标 400, 350）
+        return {
+            x: (sx - csx) / s + 400,
+            y: (sy - csy) / s + 350
+        };
+    }
+
     function startDrag(e) {
         e.preventDefault();
         e.stopPropagation();
-        if (!isDemoMode && e.target.dataset.color !== currentPlayer) { showToast('只能移动当前回合的棋子！'); return; }
+        // 用 closest('.piece') 确保始终拿到棋子 div，而非内部文字节点
+        const pieceEl = e.target.closest ? e.target.closest('.piece') : e.target;
+        if (!pieceEl) return;
+        if (!isDemoMode && pieceEl.dataset.color !== currentPlayer) { showToast('只能移动当前回合的棋子！'); return; }
         
-        draggedPiece = e.target;
+        draggedPiece = pieceEl;
         isDraggingPiece = true;
         isPanning = false;
         draggedPiece.classList.add('dragging');
 
-        // 记录鼠标按下时相对棋子中心的逻辑坐标偏移，避免拖拽漂移
+        // 记录鼠标/手指按下时相对棋子中心的逻辑坐标偏移，防止拖拽漂移
         const pos = getClientPos(e);
-        const container = document.getElementById('board-container');
-        const rect = container.getBoundingClientRect();
-        const scaleX = rect.width / 800;
-        const scaleY = rect.height / 700;
+        const mouseLogic = screenToLogic(pos.x, pos.y);
         const pieceLogicX = parseFloat(draggedPiece.style.left) || 0;
         const pieceLogicY = parseFloat(draggedPiece.style.top)  || 0;
-        const mouseLogicX = (pos.x - rect.left) / scaleX;
-        const mouseLogicY = (pos.y - rect.top)  / scaleY;
-        dragOffsetX = mouseLogicX - pieceLogicX;
-        dragOffsetY = mouseLogicY - pieceLogicY;
+        dragOffsetX = mouseLogic.x - pieceLogicX;
+        dragOffsetY = mouseLogic.y - pieceLogicY;
         
         // 显示吃子区，淡化移出托盘
         document.getElementById('capture-zone').classList.add('active');
@@ -11169,14 +11190,10 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         if (e.type === 'touchmove') e.preventDefault();
 
         const pos = getClientPos(e);
-        const container = document.getElementById('board-container');
-        const rect = container.getBoundingClientRect();
-        const scaleX = rect.width / 800;
-        const scaleY = rect.height / 700;
-
-        // 拖拽跟随（逻辑坐标，减去按下时的偏移量，防止竖屏/缩放下漂移；不做范围限制，让棋子能拖入吃子区）
-        let x = (pos.x - rect.left) / scaleX - dragOffsetX;
-        let y = (pos.y - rect.top)  / scaleY - dragOffsetY;
+        // 用精确的逆变换将屏幕坐标转换为逻辑坐标，减去按下时的偏移，保证棋子与手指相对位置不变
+        const logic = screenToLogic(pos.x, pos.y);
+        let x = logic.x - dragOffsetX;
+        let y = logic.y - dragOffsetY;
         draggedPiece.style.left = x + 'px';
         draggedPiece.style.top = y + 'px';
 
@@ -11238,30 +11255,27 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
             return;
         }
 
-        const container = document.getElementById('board-container');
-        const rect = container.getBoundingClientRect();
-        const scaleX = rect.width / 800;
-        const scaleY = rect.height / 700;
-
-        // 始终使用鼠标/手指的实际位置作为落点检测基准
-        const pos = getClientPos(e);
-        let mouseX = (pos.x - rect.left) / scaleX;
-        let mouseY = (pos.y - rect.top)  / scaleY;
+        // 用与 screenToLogic 一致的 scale 参数来计算吸附阈值，保证与坐标系统完全统一
+        const _wrapper = document.getElementById('board-wrapper');
+        const _ww = _wrapper.clientWidth, _wh = _wrapper.clientHeight;
+        const _baseScale = Math.min(_ww / 800, _wh / 700);
+        const _scale = _baseScale * userZoom;
 
         let pieceData = pieces[draggedPiece.dataset.id];
         let originalNode = nodes[pieceData.nodeId];
 
-        // 吸附检测：全程用屏幕坐标，阈值固定为屏幕像素（不随缩放变化）
-        const snapThreshPx = 28; // 屏幕像素，与缩放无关
+        // 吸附检测：用棋子视觉中心的逻辑坐标作为落点基准（而非鼠标位置）。
+        // 引入 dragOffset 后棋子中心与鼠标不再重合，应以棋子所在位置判断目标节点，
+        // 这样用户"把棋子放在哪里"就落在哪里，行为符合直觉。
+        const pieceCX = parseFloat(draggedPiece.style.left) || 0;
+        const pieceCY = parseFloat(draggedPiece.style.top)  || 0;
+        const snapThreshLogic = 40 / _scale; // 40屏幕像素 → 逻辑像素，与缩放无关
         let targetNode = null;
-        let minD = snapThreshPx;
+        let minD = snapThreshLogic;
 
-        // 寻找吸附节点（只能落到没有棋子的空节点上，禁止叠加）
-        const screenPos = getClientPos(e);
         Object.values(nodes).forEach(node => {
-            const nsx = rect.left + node.x * scaleX;
-            const nsy = rect.top  + node.y * scaleY;
-            let d = Math.sqrt(Math.pow(nsx - screenPos.x, 2) + Math.pow(nsy - screenPos.y, 2));
+            const dx = node.x - pieceCX, dy = node.y - pieceCY;
+            const d = Math.sqrt(dx*dx + dy*dy);
             if (d < minD && node.piece === null) { targetNode = node; minD = d; }
         });
         if (targetNode && targetNode.id === originalNode.id) targetNode = null;
@@ -11353,13 +11367,11 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         pieceData.nodeId = tempNode.id;
         tempNode.piece = pieceId;
 
-        // 把棋子初始坐标定在鼠标/手指实际位置（board-container 坐标系）
+        // 把棋子初始坐标定在鼠标/手指实际位置（board-container 逻辑坐标系）
         const initPos = getClientPos(e);
-        const container = document.getElementById('board-container');
-        const rect = container.getBoundingClientRect();
-        const scaleX = rect.width / 800, scaleY = rect.height / 700;
-        const initX = (initPos.x - rect.left) / scaleX;
-        const initY = (initPos.y - rect.top)  / scaleY;
+        const initLogic = screenToLogic(initPos.x, initPos.y);
+        const initX = initLogic.x;
+        const initY = initLogic.y;
 
         const piecesLayer = document.getElementById('pieces-layer');
         const el = document.createElement('div');
@@ -11374,6 +11386,8 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         draggedPiece = el;
         isDraggingPiece = true; isPanning = false;
         draggedPiece.classList.add('dragging');
+        // 托盘拖出：棋子初始位置就在鼠标处，偏移为 0
+        dragOffsetX = 0; dragOffsetY = 0;
 
         // 显示吃子区
         document.getElementById('capture-zone').classList.add('active');
@@ -11902,31 +11916,47 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         }
         overlay.style.display = 'block';
 
-        // 积和法：棋子编号 × 棋位编号，取所有进入对方阵地的棋子
-        // 差和法：棋子编号 − 棋位编号，取所有进入对方阵地的棋子，负值也计入
+        // 积和法：Σ(棋子编号 × 棋位编号)，最高 285 分
+        // 差和法：Σ|棋子编号 − 棋位编号|，最高 50 分
+        // 只计算进入对方阵地的己方棋子
         let redProd = 0, blueProd = 0;
         let redDiff = 0, blueDiff = 0;
 
         Object.values(nodes).forEach(node => {
+            if (node.type === 'normal') return;
             if (!node.piece) return;
             const piece = pieces[node.piece];
             if (!piece) return;
-            // 红方阵地（row < 4）：蓝方棋子入侵得分
+            // 红方阵地被蓝方入侵
             if (node.type === 'red-zone' && piece.color === 'blue') {
                 blueProd += piece.val * node.scoreValue;
                 blueDiff += piece.val - node.scoreValue;
             }
-            // 蓝方阵地（row > 10）：红方棋子入侵得分
+            // 蓝方阵地被红方入侵
             if (node.type === 'blue-zone' && piece.color === 'red') {
                 redProd += piece.val * node.scoreValue;
                 redDiff += piece.val - node.scoreValue;
             }
         });
 
+        // 统计入侵棋子数，方便确认是否有棋子进入对方阵地
+        let redCount = 0, blueCount = 0;
+        Object.values(nodes).forEach(node => {
+            if (!node.piece) return;
+            const p = pieces[node.piece];
+            if (!p) return;
+            if (node.type === 'blue-zone' && p.color === 'red') redCount++;
+            if (node.type === 'red-zone'  && p.color === 'blue') blueCount++;
+        });
+
         document.getElementById('score-red-prod').textContent = redProd;
         document.getElementById('score-blue-prod').textContent = blueProd;
         document.getElementById('score-red-diff').textContent = redDiff;
         document.getElementById('score-blue-diff').textContent = blueDiff;
+        const redCountEl  = document.getElementById('score-red-count');
+        const blueCountEl = document.getElementById('score-blue-count');
+        if (redCountEl)  redCountEl.textContent  = `(${redCount}/10 格)`;
+        if (blueCountEl) blueCountEl.textContent = `(${blueCount}/10 格)`;
     }
 
     document.getElementById('score-toggle').addEventListener('change', updateScore);

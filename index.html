@@ -63,6 +63,7 @@
             margin: 0; padding: 0;
             display: flex;
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
         }
 
@@ -135,8 +136,8 @@
         /* --- 左下角浮动按钮组 --- */
         .bottom-btn-group {
             position: absolute;
-            bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-            left: calc(20px + env(safe-area-inset-left, 0px));
+            bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+            left: max(20px, calc(env(safe-area-inset-left, 0px) + 16px));
             display: flex; flex-direction: row; gap: 10px;
             align-items: center;
             z-index: 50;
@@ -475,13 +476,13 @@
             .main-content { width: 100vw; }
             .piece { width: 44px; height: 44px; font-size: 20px; }
             .node  { width: 38px; height: 38px; }
-            .bottom-btn-group { bottom: max(16px, env(safe-area-inset-bottom)); left: max(16px, env(safe-area-inset-left)); gap: 8px; }
+            .bottom-btn-group { bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px)); left: max(16px, calc(env(safe-area-inset-left, 0px) + 8px)); gap: 8px; }
             .float-btn { width: 52px; height: 52px; border-radius: 18px; }
             .save-menu { left: 0; width: min(320px, 92vw); }
             .import-modal { width: 94vw; max-width: unset; padding: 20px 16px; }
             .overlay-score { padding: 12px 14px; font-size: 13px; }
-            .overlay-mode  { font-size: 12px; padding: 8px 14px; bottom: max(80px, calc(env(safe-area-inset-bottom) + 70px)); }
-            .toast { bottom: max(90px, calc(env(safe-area-inset-bottom) + 80px)); }
+            .overlay-mode  { font-size: 12px; padding: 8px 14px; bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 70px)); }
+            .toast { bottom: max(90px, calc(env(safe-area-inset-bottom, 0px) + 80px)); }
         }
         /* ===== 锁定态：主内容区提示 ===== */
         .main-content.locked-mode #board-wrapper { cursor: not-allowed; }
@@ -737,8 +738,8 @@
                 <button class="import-tab active" id="tab-scan" onclick="switchImportTab('scan')">📷 扫描二维码</button>
             </div>
             <div class="import-panel" id="panel-manual">
-                <div class="import-modal-desc">输入 25 位编码（大小写均可，连字符可省略）</div>
-                <input class="import-input" id="import-input" type="text" placeholder="例：ABCDE-FGHJK-MNPQR-STVWX-12345" maxlength="30" autocomplete="off" spellcheck="false">
+                <div class="import-modal-desc">输入 30 位编码（大小写均可，连字符可省略）</div>
+                <input class="import-input" id="import-input" type="text" placeholder="例：ABCDE-FGHIJ-KLMNO-PQRST-UVWXY-Z0123" maxlength="36" autocomplete="off" spellcheck="false">
                 <div class="import-error" id="import-error"></div>
                 <div class="import-modal-btns">
                     <button class="import-cancel-btn" id="import-cancel-btn">取消</button>
@@ -11385,7 +11386,9 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         showToast('已悔棋');
     });
 
-    // --- 8. 编码系统（支持任意子数）---
+    // --- 8. 编码系统（支持任意子数，格式：首字符=子数，后29位=位置，共30位分6组） ---
+    // 说明：88个节点，20子满棋时位置编码最多需要25位B36，加首字符共26位，
+    //        向上取整到5的倍数 = 30位，分6组每组5字符。
     let nodeIndexList = [];
     function buildNodeIndex() {
         nodeIndexList = [];
@@ -11401,6 +11404,8 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     }
 
     const B36 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const CODE_POS_LEN = 29; // 位置编码固定29位
+    const CODE_TOTAL   = 30; // 含首字符共30位
     function bigintToB36(n, minLen) {
         const base = 36n; let s = '';
         if (n === 0n) s = 'A';
@@ -11413,13 +11418,11 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         return n;
     }
 
-    // 编码格式：首字符编码子数（A=20,B=19,...），后24位编码位置
     function encodeBoard() {
         buildNodeIndex();
         const pieceIds = getSortedPieceIds();
         const count = pieceIds.length;
         if (count === 0) return null;
-        const totalNodes = nodeIndexList.length; // 88
         const remaining = nodeIndexList.slice();
         const ranks = [];
         for (const pid of pieceIds) {
@@ -11427,51 +11430,45 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
             if (rank < 0) return null;
             ranks.push(rank); remaining.splice(rank, 1);
         }
+        // 小端阶乘数系统：从后往前累积
         let n = 0n;
-        for (let i = ranks.length - 1; i >= 0; i--) n = n * BigInt(totalNodes - i) + BigInt(ranks[i]);
-        // 首字符：A=20子，B=19子，...，T=1子
-        const countChar = B36[20 - count];
-        const posStr = bigintToB36(n, 24);
+        for (let i = ranks.length - 1; i >= 0; i--) n = n * BigInt(88 - i) + BigInt(ranks[i]);
+        const countChar = B36[20 - count]; // A=20子，T=1子
+        const posStr = bigintToB36(n, CODE_POS_LEN);
         return (countChar + posStr).match(/.{5}/g).join('-');
     }
 
     function decodeBoard(code) {
         buildNodeIndex();
         const raw = code.replace(/[-\s]/g, '').toUpperCase();
-        if (raw.length !== 25) return { error: '编码应为 25 位（连字符可省略）' };
-        // 首字符解析子数
+        if (raw.length !== CODE_TOTAL) return { error: `编码应为 ${CODE_TOTAL} 位（连字符可省略）` };
         const countCharIdx = B36.indexOf(raw[0]);
         if (countCharIdx < 0 || countCharIdx > 19) return { error: '编码首字符无效' };
         const count = 20 - countCharIdx;
-        const posRaw = raw.slice(1);
-        const n = b36ToBigint(posRaw);
+        const n = b36ToBigint(raw.slice(1));
         if (n === null) return { error: '包含非法字符' };
-        // 根据现有棋子列表（活跃+被吃）重建sorted list
         const allPieces = { ...pieces };
         capturedPieces.forEach(p => { allPieces[p.id] = p; });
         const allIds = Object.keys(allPieces);
         const reds  = allIds.filter(id => allPieces[id].color === 'red' ).sort((a,b) => allPieces[a].val - allPieces[b].val);
         const blues = allIds.filter(id => allPieces[id].color === 'blue').sort((a,b) => allPieces[a].val - allPieces[b].val);
         const allSorted = [...reds, ...blues];
-        if (allSorted.length < count) return { error: `编码需要 ${count} 枚棋子，但当前只有 ${allSorted.length} 枚` };
+        if (allSorted.length < count) return { error: `编码需要 ${count} 枚棋子，当前只有 ${allSorted.length} 枚（请先重置棋盘）` };
         const pieceIds = allSorted.slice(0, count);
-        const totalNodes = nodeIndexList.length;
+        // 小端解码
         let val = n; const ranks = [];
         for (let i = 0; i < count; i++) {
-            const m = BigInt(totalNodes - i);
-            ranks.push(Number(val % m)); val /= m;
+            ranks.push(Number(val % BigInt(88 - i)));
+            val /= BigInt(88 - i);
         }
         if (val !== 0n) return { error: '编码超出有效范围' };
         const remaining = nodeIndexList.slice(), moves = [];
         for (let i = 0; i < count; i++) {
-            const rank = ranks[i];
-            if (rank >= remaining.length) return { error: '编码无效（节点越界）' };
-            moves.push({ pieceId: pieceIds[i], targetNodeId: remaining[rank] });
-            remaining.splice(rank, 1);
+            if (ranks[i] >= remaining.length) return { error: '编码无效（节点越界）' };
+            moves.push({ pieceId: pieceIds[i], targetNodeId: remaining[ranks[i]] });
+            remaining.splice(ranks[i], 1);
         }
-        // 没进入编码的棋子列为captured
-        const capturedIds = allSorted.slice(count);
-        return { moves, capturedIds };
+        return { moves, capturedIds: allSorted.slice(count) };
     }
 
     function applyDecoded(moves, capturedIds) {
